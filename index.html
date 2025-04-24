@@ -92,7 +92,8 @@ function setup() {
 
   // 结果区域
   resultDiv = createDiv('').position(20, y).size(600, 200);
-  
+
+
   // 绑定输入事件
   const inputs = [bInput, cInput, extraInput, ...aInputs];
   inputs.forEach(input => input.input(() => {
@@ -201,7 +202,16 @@ function calculate() {
     <p>B类年收入: ${b.toFixed(2)}</p><p>工作时间: ${c} 小时</p>
     <p>费率加成: ${(extra*100).toFixed(1)}%</p><hr>
     <h4>基础时薪: ${baseRate.toFixed(2)}</h4>
-    <h2>最终建议时薪: 💰 ${finalRate.toFixed(2)}/小时</h2></div>`);
+    <h2>最终建议时薪: 💰 ${finalRate.toFixed(2)}/小时</h2>
+    <h6>如果用起来觉得方便，欢迎打赏。或者比特币：bc1pdmgaut0lfjcgvwt9uh3erpwma5s576jrjlrrlu7w2w7p9v2qnusqsa7phx</h6>
+
+<object type="text/html" 
+        data="https://ahr-calc.github.io/for-donation-scan"
+        width="500"
+        height="300">
+</object>
+  </div>`);
+
   // 新增：将计算结果写入生命游戏网格
   const rateString = finalRate.toFixed(2).replace('.', ''); // 示例：50.25 → "5025"
   rateString.split('').forEach(char => {
@@ -227,6 +237,7 @@ function calculate() {
     }
   });
 }
+
     </script>
   </div>
 </body>
