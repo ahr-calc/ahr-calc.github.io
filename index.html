@@ -1,0 +1,233 @@
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+</head>
+<body>
+  <div id="calculator">
+    <script>
+let aInputs = [], bInput, cInput, extraInput, resultDiv;
+
+const digits = {
+    '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    '1': [[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+    '2': [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+    '3': [[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    '4': [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+    '5': [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+    '6': [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+    '7': [[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],
+    '8': [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+    '9': [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]]
+};
+
+// 生命游戏参数
+let cellSize = 8;
+let cols, rows;
+let grid;
+let nextGrid;
+let isPaused = false;
+
+function setup() {
+  const canvas = createCanvas(800, 600);
+  canvas.position(20, 350);
+  background(240);
+  textSize(14);
+  
+  // 初始化生命游戏
+  cols = width / cellSize;
+  rows = height / cellSize;
+  grid = create2DArray(cols, rows);
+  nextGrid = create2DArray(cols, rows);
+  
+  // 创建计算器UI
+  let y = 20;
+  createDiv('<h1>=== 🎨 艺术家时薪计算器 Version0.1a ===</h1>').position(20, y);
+  y += 50;
+  createDiv('<h6>AHR-Calc=Artist Hourly Rate Calculator ( ZIJIE出品，2025年春 )</h6>').position(300, y);
+  y += 15;
+  createDiv('<div style="max-width:600px"><h6>说明：最近刚好碰到类似问题，于是参考了一份艺术家工会手册，写了个艺术家时薪计算器。当然中国的艺术家要面对不太一样的情况，还要根据具体修改；同时往里加了个生命游戏，输入的数值会使其出现初始点阵，然后持续演化。（敲空格=暂停，可鼠标右键另存游戏的最终生成图案。）</h6>').position(200, y);
+  y += 50;
+
+  createDiv(`<div style="max-width:600px"><h3>计算原理：</h3><p>时薪 = (A类年度总成本 + B类年收入) ÷ C类年工作时间 × (1 + 额外费率)；其中：</p><ul><li>A类：年度运营成本（9项支出总和）</li><li>B类：符合市场标准的年收入</li><li>C类：年工作时间（默认1610小时）</li><li>额外费率：10%-15%的利润空间</li></ul></div>`).position(10, y);
+  y += 190;
+
+  // A类输入
+  createDiv('<h3>🛠️ A类：年度运营成本</h3>').position(20, y).style('color', '#FF5733');
+  y += 50;
+  const aLabels = [
+    '工作室租金', '消耗品（文具/电子）', '创作用材', 
+    '设备维护', '人力外包', '运输物流',
+    '推广营销', '医疗保险', '税费保险'
+  ];
+  aLabels.forEach((label, i) => {
+    createDiv(`${label}: `).position(30, y + i*30);
+    let input = createInput('0').position(200, y + i*30 - 5).size(150);
+    aInputs.push(input);
+  });
+  y += aLabels.length * 30 + 0;
+
+  // 其他输入
+  createDiv('<h3>💰 B类：目标年收入</h3>').position(20, y).style('color', '#FF5733');
+  y += 50;
+  createDiv('市场标准年收入: ').position(30, y);
+  bInput = createInput('0').position(200, y - 5).size(150);
+  y += 10;
+
+  createDiv('<h3>⏱️ C类：工作时间</h3>').position(20, y).style('color', '#FF5733');
+  y += 50;
+  createDiv('年工作小时数: ').position(30, y);
+  cInput = createInput('1610').position(200, y - 5).size(150);
+  y += 10;
+
+  createDiv('<h3>✨ 额外费率</h3>').position(20, y).style('color', '#FF5733');
+  y += 50;
+  createDiv('费率百分比 (10-15%): ').position(30, y);
+  extraInput = createInput('12.5').position(200, y - 5).size(150);
+  createDiv('%').position(360, y);
+  y += 50;
+
+  // 计算按钮
+  createButton('📊 计算时薪').position(20, y).mousePressed(calculate).size(120, 30);
+  y += 50;
+
+  // 结果区域
+  resultDiv = createDiv('').position(20, y).size(600, 200);
+
+  // 绑定输入事件
+  const inputs = [bInput, cInput, extraInput, ...aInputs];
+  inputs.forEach(input => input.input(() => {
+    initializeGrid();
+  }));
+  
+  initializeGrid();
+  frameRate(10);
+}
+
+function draw() {
+  background(255);
+  
+  if (!isPaused) {
+    computeNextGeneration();
+    swapGrids();
+  }
+  
+  drawGrid();
+}
+
+// 生命游戏函数
+function create2DArray(cols, rows) {
+  return Array(cols).fill().map(() => Array(rows).fill(0));
+}
+
+function initializeGrid() {
+  grid = create2DArray(cols, rows);
+  const allValues = [bInput.value(), cInput.value(), extraInput.value(), ...aInputs.map(i => i.value())];
+  const allDigits = allValues.join('').split('').filter(c => c in digits);
+  
+  allDigits.forEach(digit => {
+    const pattern = digits[digit];
+    const w = pattern[0].length;
+    const h = pattern.length;
+    
+    const x = floor(random(cols - w));
+    const y = floor(random(rows - h));
+    
+    for (let i = 0; i < h; i++) {
+      for (let j = 0; j < w; j++) {
+        const col = x + j;
+        const row = y + i;
+        if (col < cols && row < rows) {
+          grid[col][row] = pattern[i][j];
+        }
+      }
+    }
+  });
+}
+
+function drawGrid() {
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      fill(grid[i][j] ? 200 : 255);
+      stroke(200);
+      rect(i * cellSize, j * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
+function computeNextGeneration() {
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const neighbors = countNeighbors(i, j);
+      nextGrid[i][j] = grid[i][j] ? (neighbors === 2 || neighbors === 3) : (neighbors === 3);
+    }
+  }
+}
+
+function countNeighbors(x, y) {
+  let sum = 0;
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      const col = (x + i + cols) % cols;
+      const row = (y + j + rows) % rows;
+      sum += grid[col][row];
+    }
+  }
+  return sum - grid[x][y];
+}
+
+function swapGrids() {
+  [grid, nextGrid] = [nextGrid, grid];
+}
+
+function keyPressed() {
+  if (key === ' ') isPaused = !isPaused;
+}
+
+// 原计算器逻辑
+function calculate() {
+  const validate = (v, d = 0) => isNaN(parseFloat(v)) ? d : parseFloat(v);
+  const aTotal = aInputs.reduce((s, i) => s + validate(i.value()), 0);
+  
+  const b = validate(bInput.value());
+  const c = validate(cInput.value(), 1610);
+  let extra = validate(extraInput.value(), 12.5);
+  extra = constrain(extra, 10, 15) / 100;
+
+  const baseRate = (aTotal + b) / c;
+  const finalRate = baseRate * (1 + extra);
+
+  resultDiv.html(`<div style="background:#bbffbb; padding:5px; border-radius:8px">
+    <h3>📝 计算结果</h3><p>A类总成本: ${aTotal.toFixed(2)}</p>
+    <p>B类年收入: ${b.toFixed(2)}</p><p>工作时间: ${c} 小时</p>
+    <p>费率加成: ${(extra*100).toFixed(1)}%</p><hr>
+    <h4>基础时薪: ${baseRate.toFixed(2)}</h4>
+    <h2>最终建议时薪: 💰 ${finalRate.toFixed(2)}/小时</h2></div>`);
+  // 新增：将计算结果写入生命游戏网格
+  const rateString = finalRate.toFixed(2).replace('.', ''); // 示例：50.25 → "5025"
+  rateString.split('').forEach(char => {
+    if (digits[char]) {
+      const pattern = digits[char];
+      const w = pattern[0].length;
+      const h = pattern.length;
+      
+      // 随机位置生成（避开边缘）
+      const x = floor(random(10, cols - w - 10));
+      const y = floor(random(10, rows - h - 10));
+      
+      // 写入网格（使用逻辑或保留已有细胞）
+      for (let i = 0; i < h; i++) {
+        for (let j = 0; j < w; j++) {
+          const col = x + j;
+          const row = y + i;
+          if (col < cols && row < rows) {
+            grid[col][row] = grid[col][row] || pattern[i][j]; // 保留原有活细胞
+          }
+        }
+      }
+    }
+  });
+}
+    </script>
+  </div>
+</body>
+</html>
